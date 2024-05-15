@@ -49,12 +49,14 @@ void get_energy_level(const char *filename, double *value_store) {
 
     fsize = file_stat.st_size + 1;
     buf = calloc(1, fsize);
-    read(fd, buf, fsize);
-    close(fd);
     if (buf == NULL) {
-        perror("calloc");
+        close(fd);
+        free(glob_bat_path);
+        perror("get_energy_level: unable to allocate memory");
         exit(-1);
     }
+    read(fd, buf, fsize);
+    close(fd);
 
     buf[fsize - 1] = '\0';
     *value_store = strtod(buf, NULL);
@@ -87,6 +89,13 @@ int status_label(size_t bat_path_size) {
     size_t status_str_size = bat_path_size + 8;
     char *status_path = calloc(1, status_str_size);
     int fd;
+
+    if (status_path == NULL) {
+        free(glob_bat_path);
+        perror("status_label: unable to allocate memory");
+        exit(-1);
+    }
+
     snprintf(status_path, status_str_size, "%s%s", glob_bat_path, "/status");
     if ((fd = open(status_path, O_RDONLY)) == -1) {
         fprintf(stderr, "Unable to open file %s\n", status_path);
@@ -105,6 +114,13 @@ int status_label(size_t bat_path_size) {
 
     size_t len = fl.st_size + 1;
     char *status = calloc(1, len);
+
+    if (status == NULL) {
+        free(glob_bat_path);
+        close(fd);
+        perror("status_label: unable to allocate memory");
+        exit(-1);
+    }
 
     read(fd, status, len);
     close(fd);
@@ -127,6 +143,16 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
             size_t now_str_size = bat_path_size + 12;
             char *full_path = calloc(1, full_str_size);
             char *now_path = calloc(1, now_str_size);
+
+            if (full_path == NULL) {
+                free(glob_bat_path);
+                perror("main_loop: unable to allocate memory");
+                exit(-1);
+            } else if (now_path == NULL) {
+                free(glob_bat_path);
+                perror("main_loop: unable to allocate memory");
+                exit(-1);
+            }
 
             snprintf(full_path, full_str_size, "%s%s", glob_bat_path,
                      "/energy_full");
@@ -160,10 +186,10 @@ int main(int argc, char **argv) {
         "Must use at least one option to successfully use batnotify\n"
         "OPTIONS:\n"
         "  -p            Battery percentage (float) that triggers "
-        "notification\n"
+        "notification.\n"
         "  -u            Urgency of notification to be triggered low, normal, "
-        "\n                critical defaults to normal\n\n"
-        "  -d            Default values set trigger to 30.0% and urgency to "
+        "\n                critical. Defaults to normal\n\n"
+        "  -d            Default values set percentage to 30.0, urgency to "
         "normal\n"
         "  -h, --help    Show help\n"
         "EXAMPLE:\n"
@@ -196,6 +222,7 @@ int main(int argc, char **argv) {
             } else if (strcmp(argv[i + 1], "normal") == 0) {
             } else {
                 printf("%s\n", help_message);
+                fprintf(stderr, "%s is an invalid input\n", argv[i + 1]);
                 free(glob_bat_path);
                 return 0;
             }
@@ -211,10 +238,11 @@ int main(int argc, char **argv) {
         bat_percent_trigger = 30.0;
     }
 
-    if (bat_percent_trigger <= 0) {
-        perror("Invalid input");
+    if (bat_percent_trigger <= 0 || bat_percent_trigger > 100.0) {
+        printf("%s\n", help_message);
+        fprintf(stderr, "%lf %s\n", bat_percent_trigger, "Is invalid input");
         free(glob_bat_path);
-        exit(-1);
+        return -1;
     }
 
     battery_path();
