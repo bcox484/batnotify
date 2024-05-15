@@ -1,6 +1,5 @@
 #include <dirent.h>
 #include <fcntl.h>
-#include <libnotify/notification.h>
 #include <libnotify/notify.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -13,6 +12,7 @@
 
 char *glob_bat_path = NULL;
 int bat_notify(double percentage, NotifyUrgency urgency_level) {
+    /* Send notification with battery level */
     char message[25];
     snprintf(message, sizeof(message), "%.1lf%s", percentage,
              "% BATTERY LEVEL");
@@ -32,6 +32,7 @@ int bat_notify(double percentage, NotifyUrgency urgency_level) {
 }
 
 void get_energy_level(const char *filename, double *value_store) {
+    /* Function used to retrieve energy_now and energy_full */
     int fd;
     struct stat file_stat;
     size_t fsize;
@@ -55,6 +56,7 @@ void get_energy_level(const char *filename, double *value_store) {
         perror("get_energy_level: unable to allocate memory");
         exit(-1);
     }
+
     read(fd, buf, fsize);
     close(fd);
 
@@ -69,6 +71,7 @@ void free_bat_path_on_kill(int signum) {
 }
 
 void battery_path() {
+    /* Find the battery directoy path, store in glob_bat_path */
     const char power_path[] = "/sys/class/power_supply/";
     DIR *dir;
     struct dirent *ent;
@@ -86,6 +89,9 @@ void battery_path() {
 }
 
 int status_label(size_t bat_path_size) {
+    /* Determine if battery is discharging by returning output of strcmp, */
+    /* if battery is dicharging will return 0 */
+
     size_t status_str_size = bat_path_size + 8;
     char *status_path = calloc(1, status_str_size);
     int fd;
@@ -133,6 +139,9 @@ int status_label(size_t bat_path_size) {
 }
 
 void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
+    /* Checks battery level and state every 15 seconds to determine if */
+    /* notification should be sent */
+
     size_t bat_path_size = strlen(glob_bat_path);
     while (1) {
         int state = status_label(bat_path_size);
@@ -148,6 +157,7 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
                 free(glob_bat_path);
                 perror("main_loop: unable to allocate memory");
                 exit(-1);
+
             } else if (now_path == NULL) {
                 free(glob_bat_path);
                 perror("main_loop: unable to allocate memory");
@@ -202,6 +212,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     double bat_percent_trigger = 0.0;
+
     NotifyUrgency urgency_level = NOTIFY_URGENCY_NORMAL;
     bool one_option = false;
 
@@ -210,15 +221,20 @@ int main(int argc, char **argv) {
             bat_percent_trigger = 30.0;
             break;
         }
+
         if (strcmp("-p", argv[i]) == 0 && argv[i + 1] != NULL) {
             bat_percent_trigger = strtod(argv[i + 1], NULL);
         }
+
         if (strcmp("-u", argv[i]) == 0 && argv[i + 1] != NULL) {
             one_option = true;
+
             if (strcmp(argv[i + 1], "critical") == 0) {
                 urgency_level = NOTIFY_URGENCY_CRITICAL;
+
             } else if (strcmp(argv[i + 1], "low") == 0) {
                 urgency_level = NOTIFY_URGENCY_LOW;
+
             } else if (strcmp(argv[i + 1], "normal") == 0) {
             } else {
                 printf("%s\n", help_message);
@@ -227,6 +243,7 @@ int main(int argc, char **argv) {
                 return 0;
             }
         }
+
         if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0) {
             free(glob_bat_path);
             printf("%s\n", help_message);
@@ -247,6 +264,7 @@ int main(int argc, char **argv) {
 
     battery_path();
     if (glob_bat_path == NULL) {
+        perror("Null ptr main");
         return -1;
     }
 
