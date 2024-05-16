@@ -14,7 +14,7 @@ char *glob_bat_path = NULL;
 int bat_notify(double percentage, NotifyUrgency urgency_level) {
     /* Send notification with battery level */
     char message[25];
-    snprintf(message, sizeof(message), "%.1lf%s", percentage,
+    snprintf(message, sizeof(message) - 1, "%.1lf%s", percentage,
              "% BATTERY LEVEL");
 
     notify_init("batnotify");
@@ -92,7 +92,7 @@ int status_label(size_t bat_path_size) {
     /* Determine if battery is discharging by returning output of strcmp, */
     /* if battery is dicharging will return 0 */
 
-    size_t status_str_size = bat_path_size + 8;
+    size_t status_str_size = bat_path_size + 9;
     char *status_path = calloc(1, status_str_size);
     int fd;
 
