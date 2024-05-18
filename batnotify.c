@@ -217,37 +217,46 @@ int main(int argc, char **argv) {
     bool one_option = false;
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp("-d", argv[i]) == 0) {
+        char *val = argv[i + 1];
+        switch (argv[i][1]) {
+        case 'd':
             bat_percent_trigger = 30.0;
-            break;
-        }
+            continue;
 
-        if (strcmp("-p", argv[i]) == 0 && argv[i + 1] != NULL) {
-            bat_percent_trigger = strtod(argv[i + 1], NULL);
-        }
+        case 'p':
+            if (val == NULL) {
+                break;
+            }
+            bat_percent_trigger = strtod(val, NULL);
+            continue;
 
-        if (strcmp("-u", argv[i]) == 0 && argv[i + 1] != NULL) {
+        case 'u':
+            if (val == NULL) {
+                break;
+            }
             one_option = true;
-
-            if (strcmp(argv[i + 1], "critical") == 0) {
+            if (strcmp(val, "critical") == 0) {
                 urgency_level = NOTIFY_URGENCY_CRITICAL;
 
-            } else if (strcmp(argv[i + 1], "low") == 0) {
+            } else if (strcmp(val, "low") == 0) {
                 urgency_level = NOTIFY_URGENCY_LOW;
 
-            } else if (strcmp(argv[i + 1], "normal") == 0) {
+            } else if (strcmp(val, "normal") == 0) {
             } else {
                 printf("%s\n", help_message);
-                fprintf(stderr, "%s is an invalid input\n", argv[i + 1]);
+                fprintf(stderr, "%s is an invalid input\n", val);
                 free(glob_bat_path);
                 return 0;
             }
-        }
+            continue;
 
-        if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0) {
+        case 'h':
             free(glob_bat_path);
             printf("%s\n", help_message);
             return 0;
+        }
+
+        if (strcmp("--help", argv[i]) == 0) {
         }
     }
 
