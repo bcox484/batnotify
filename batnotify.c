@@ -257,6 +257,9 @@ int main(int argc, char **argv) {
         }
 
         if (strcmp("--help", argv[i]) == 0) {
+            free(glob_bat_path);
+            printf("%s\n", help_message);
+            return 0;
         }
     }
 
