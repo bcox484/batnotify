@@ -28,7 +28,8 @@ int bat_notify(double percentage, NotifyUrgency urgency_level) {
     notify_notification_show(notification, NULL);
     g_object_unref(G_OBJECT(notification));
     notify_uninit();
-    return 0;
+
+    return EXIT_SUCCESS;
 }
 
 void get_energy_level(const char *filename, double *value_store) {
@@ -40,12 +41,12 @@ void get_energy_level(const char *filename, double *value_store) {
 
     if ((fd = open(filename, O_RDONLY)) == -1) {
         fprintf(stderr, "Unable to open file %s\n", filename);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if (fstat(fd, &file_stat) == -1) {
         perror("fstat");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     fsize = file_stat.st_size + 1;
@@ -54,7 +55,7 @@ void get_energy_level(const char *filename, double *value_store) {
         close(fd);
         free(glob_bat_path);
         perror("get_energy_level: unable to allocate memory");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     read(fd, buf, fsize);
@@ -90,7 +91,7 @@ void battery_path() {
 
 int status_label(size_t bat_path_size) {
     /* Determine if battery is discharging by returning output of strcmp, */
-    /* if battery is dicharging will return 0 */
+    /* if battery is dicharging will return EXIT_SUCCESS */
 
     size_t status_str_size = bat_path_size + 9;
     char *status_path = calloc(1, status_str_size);
@@ -99,7 +100,7 @@ int status_label(size_t bat_path_size) {
     if (status_path == NULL) {
         free(glob_bat_path);
         perror("status_label: unable to allocate memory");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     snprintf(status_path, status_str_size, "%s%s", glob_bat_path, "/status");
@@ -107,7 +108,7 @@ int status_label(size_t bat_path_size) {
         fprintf(stderr, "Unable to open file %s\n", status_path);
         free(status_path);
         free(glob_bat_path);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
     free(status_path);
 
@@ -115,7 +116,7 @@ int status_label(size_t bat_path_size) {
     if (fstat(fd, &fl) == -1) {
         perror("fstat status");
         free(glob_bat_path);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     size_t len = fl.st_size + 1;
@@ -125,7 +126,7 @@ int status_label(size_t bat_path_size) {
         free(glob_bat_path);
         close(fd);
         perror("status_label: unable to allocate memory");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     read(fd, status, len);
@@ -156,12 +157,12 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
             if (full_path == NULL) {
                 free(glob_bat_path);
                 perror("main_loop: unable to allocate memory");
-                exit(-1);
+                exit(EXIT_FAILURE);
 
             } else if (now_path == NULL) {
                 free(glob_bat_path);
                 perror("main_loop: unable to allocate memory");
-                exit(-1);
+                exit(EXIT_FAILURE);
             }
 
             snprintf(full_path, full_str_size, "%s%s", glob_bat_path,
@@ -209,7 +210,7 @@ int main(int argc, char **argv) {
 
     if (argc < 2) {
         printf("%s\n", help_message);
-        return 0;
+        return EXIT_SUCCESS;
     }
     double bat_percent_trigger = 0.0;
 
@@ -246,20 +247,20 @@ int main(int argc, char **argv) {
                 printf("%s\n", help_message);
                 fprintf(stderr, "%s is an invalid input\n", val);
                 free(glob_bat_path);
-                return 0;
+                return EXIT_FAILURE;
             }
             continue;
 
         case 'h':
             free(glob_bat_path);
             printf("%s\n", help_message);
-            return 0;
+            return EXIT_SUCCESS;
         }
 
         if (strcmp("--help", argv[i]) == 0) {
             free(glob_bat_path);
             printf("%s\n", help_message);
-            return 0;
+            return EXIT_SUCCESS;
         }
     }
 
@@ -271,13 +272,13 @@ int main(int argc, char **argv) {
         printf("%s\n", help_message);
         fprintf(stderr, "%lf %s\n", bat_percent_trigger, "Is invalid input");
         free(glob_bat_path);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     battery_path();
     if (glob_bat_path == NULL) {
         perror("Null ptr main");
-        return -1;
+        return EXIT_FAILURE;
     }
 
     struct sigaction sa;
@@ -287,5 +288,5 @@ int main(int argc, char **argv) {
     sigaction(SIGTERM, &sa, NULL);
 
     main_loop(bat_percent_trigger, urgency_level);
-    return 0;
+    return EXIT_SUCCESS;
 }
