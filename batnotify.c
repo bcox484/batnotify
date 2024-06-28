@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <fcntl.h>
+#include <libnotify/notification.h>
 #include <libnotify/notify.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -10,26 +11,37 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define TIMEOUT 5
+
 char *glob_bat_path = NULL;
-int bat_notify(double percentage, NotifyUrgency urgency_level) {
+NotifyNotification *glob_notification = NULL;
+bool glob_active_notification = false;
+
+void bat_notify_init(double percentage, NotifyUrgency urgency_level) {
     /* Send notification with battery level */
     char message[25];
     snprintf(message, sizeof(message) - 1, "%.1lf%s", percentage,
              "% BATTERY LEVEL");
 
     notify_init("batnotify");
-    NotifyNotification *notification;
-    notification = notify_notification_new(message, NULL, NULL);
+    glob_notification = notify_notification_new(message, NULL, NULL);
 
-    notify_notification_set_app_name(notification, "batnotify");
-    notify_notification_set_timeout(notification, 15000);
-    notify_notification_set_urgency(notification, urgency_level);
+    notify_notification_set_app_name(glob_notification, "batnotify");
+    notify_notification_set_timeout(glob_notification, NOTIFY_EXPIRES_NEVER);
+    notify_notification_set_urgency(glob_notification, urgency_level);
+}
 
-    notify_notification_show(notification, NULL);
-    g_object_unref(G_OBJECT(notification));
-    notify_uninit();
-
-    return EXIT_SUCCESS;
+void bat_notify_update(double percentage, NotifyUrgency urgency_level) {
+    if (glob_notification != NULL) {
+        char message[25];
+        snprintf(message, sizeof(message) - 1, "%.1lf%s", percentage,
+                 "% BATTERY LEVEL");
+        notify_notification_update(glob_notification, message, NULL, NULL);
+    } else {
+        bat_notify_init(percentage, urgency_level);
+    }
+    glob_active_notification = true;
+    notify_notification_show(glob_notification, NULL);
 }
 
 void get_energy_level(const char *filename, double *value_store) {
@@ -58,7 +70,7 @@ void get_energy_level(const char *filename, double *value_store) {
         exit(EXIT_FAILURE);
     }
 
-    read(fd, buf, fsize);
+    read(fd, buf, fsize - 1);
     close(fd);
 
     buf[fsize - 1] = '\0';
@@ -68,6 +80,13 @@ void get_energy_level(const char *filename, double *value_store) {
 
 void free_bat_path_on_kill(int signum) {
     free(glob_bat_path);
+
+    if (glob_notification != NULL) {
+        notify_notification_close(glob_notification, NULL);
+        g_object_unref(G_OBJECT(glob_notification));
+        notify_uninit();
+    }
+
     exit(EXIT_SUCCESS);
 }
 
@@ -79,9 +98,10 @@ void battery_path() {
     if ((dir = opendir(power_path)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (strstr(ent->d_name, "BAT")) {
-                size_t size = sizeof(power_path) + strlen(ent->d_name) + 1;
+                size_t size = sizeof(power_path) + strlen(ent->d_name) + 2;
                 glob_bat_path = calloc(1, size);
-                snprintf(glob_bat_path, size, "%s%s", power_path, ent->d_name);
+                snprintf(glob_bat_path, size - 1, "%s%s", power_path,
+                         ent->d_name);
                 break;
             }
         }
@@ -102,8 +122,8 @@ int status_label(size_t bat_path_size) {
         perror("status_label: unable to allocate memory");
         exit(EXIT_FAILURE);
     }
-
-    snprintf(status_path, status_str_size, "%s%s", glob_bat_path, "/status");
+    snprintf(status_path, status_str_size - 1, "%s%s", glob_bat_path,
+             "/status");
     if ((fd = open(status_path, O_RDONLY)) == -1) {
         fprintf(stderr, "Unable to open file %s\n", status_path);
         free(status_path);
@@ -149,8 +169,8 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
         double full = 0.0, current = 0.0;
 
         if (state == 0) {
-            size_t full_str_size = bat_path_size + 13;
-            size_t now_str_size = bat_path_size + 12;
+            size_t full_str_size = bat_path_size + 14;
+            size_t now_str_size = bat_path_size + 13;
             char *full_path = calloc(1, full_str_size);
             char *now_path = calloc(1, now_str_size);
 
@@ -165,9 +185,9 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
                 exit(EXIT_FAILURE);
             }
 
-            snprintf(full_path, full_str_size, "%s%s", glob_bat_path,
+            snprintf(full_path, full_str_size - 1, "%s%s", glob_bat_path,
                      "/energy_full");
-            snprintf(now_path, now_str_size, "%s%s", glob_bat_path,
+            snprintf(now_path, now_str_size - 1, "%s%s", glob_bat_path,
                      "/energy_now");
             get_energy_level(full_path, &full);
             get_energy_level(now_path, &current);
@@ -183,9 +203,14 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
 
         if (state == 0 && percentage <= bat_percent_trigger &&
             percentage > 0.0) {
-            bat_notify(percentage, urgency_level);
+            bat_notify_update(percentage, urgency_level);
+        } else if (glob_active_notification) {
+            if (glob_notification != NULL) {
+                notify_notification_close(glob_notification, NULL);
+                glob_active_notification = false;
+            }
         }
-        sleep(15);
+        sleep(TIMEOUT);
     }
 }
 

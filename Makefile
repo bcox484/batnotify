@@ -1,5 +1,5 @@
 PROJ = batnotify
-CC = gcc
+CC = gcc 
 CFLAGSLIBS = libnotify
 
 ${PROJ}: batnotify.c
