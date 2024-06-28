@@ -14,4 +14,4 @@ Example: batnotify -u critical -p 20.0
 -p option for battery percentage a notification will be triggered at
 
 
-Notification will retrigger every 15 seconds until laptop is plugged in
+Notification will update battery status every 5 seconds until laptop is plugged in
