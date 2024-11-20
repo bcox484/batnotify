@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #define TIMEOUT 5
+#define LONG_TIMEOUT 300
 
 char *glob_bat_path = NULL;
 NotifyNotification *glob_notification = NULL;
@@ -210,7 +211,12 @@ void main_loop(double bat_percent_trigger, NotifyUrgency urgency_level) {
                 glob_active_notification = false;
             }
         }
-        sleep(TIMEOUT);
+
+        if (percentage >= bat_percent_trigger + 10.0) {
+            sleep(LONG_TIMEOUT);
+        } else {
+            sleep(TIMEOUT);
+        }
     }
 }
 
